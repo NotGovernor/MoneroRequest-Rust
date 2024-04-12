@@ -3,7 +3,15 @@ name = "MoneroRequest-Rust"
 version = "0.1.0"
 edition = "2021"
 description = "MoneroRequest-Rust is an easy way to decode/encode monero-request codes in Rust."
+license = "Unlicense"
+repository = "https://github.com/NotGovernor/MoneroRequest-Rust"
+authors = ["NotGovernor"]
+keywords = ["Monero", "MoneroRequest"]
+categories = ["encoding", "parsing", "cryptography::cryptocurrencies"]
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = "1"
+uuid = "1.4.1"
