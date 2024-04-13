@@ -5,10 +5,10 @@ MoneroRequest-Rust is an easy way to decode/encode [Monero Payment Requests](htt
 
 
 ## How to Use
-!TODO
+TODO
 
 ## Example Usage
-!TODO
+TODO
 
 ## Example Inputs and Outputs
 An encoded Monero Payment request looks like this:
@@ -17,19 +17,19 @@ monero-request:1:H4sIAAAAAAAC/y1QXVPCMBD8K0yegWmbftC+FQRndHAUiiIvmTS50o5pgkmqto7
 ```
 
 When decoded it is:
-!TODO
+TODO
 
 ## Default Request Values
-!TODO
+TODO
 
 ## Helper Functions
-!TODO
+TODO
 
 ## Donate
-!TODO
+TODO
 
 ## Requirements
-!TODO
+TODO
 
 
 #### License
