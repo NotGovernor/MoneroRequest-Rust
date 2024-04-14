@@ -1,7 +1,7 @@
 *This project is not ready for use*
 
-# MoneroRequest-Rust
-MoneroRequest-Rust is an easy way to decode/encode [Monero Payment Requests](https://github.com/lukeprofits/Monero_Payment_Request_Standard) in Rust.
+# MoneroRequest_Rust
+MoneroRequest_Rust is an easy way to decode/encode [Monero Payment Requests](https://github.com/lukeprofits/Monero_Payment_Request_Standard) in Rust.
 
 
 ## How to Use

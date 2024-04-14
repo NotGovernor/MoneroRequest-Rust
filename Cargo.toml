@@ -1,8 +1,8 @@
 [package]
-name = "MoneroRequest-Rust"
+name = "MoneroRequest_Rust"
 version = "0.1.0"
 edition = "2021"
-description = "MoneroRequest-Rust is an easy way to decode/encode monero-request codes in Rust."
+description = "MoneroRequest_Rust is an easy way to decode/encode monero-request codes in Rust."
 license = "Unlicense"
 repository = "https://github.com/NotGovernor/MoneroRequest-Rust"
 authors = ["NotGovernor"]
@@ -23,4 +23,10 @@ flate2 = "1.0.28"
 base64 = "0.22.0"
 
 rand = "0.8.5"
+
+chrono = { version = "0.4.37", features = ["serde"] }
+
+url = "2.5.0"
+
+regex = "1.10.4"
 

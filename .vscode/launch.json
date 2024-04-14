@@ -13,7 +13,7 @@
 					"test",
 					"--no-run",
 					"--test=tests",
-					"--package=MoneroRequest-Rust"
+					"--package=MoneroRequest_Rust"
 				],
 				"filter": {
 					"name": "tests",

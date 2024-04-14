@@ -1,28 +1,34 @@
-/*! # MoneroRequest-Rust Crate
+/*! # MoneroRequest_Rust Crate
  
-`MoneroRequest-Rust` is an easy way to decode/encode monero-request codes in Rust.*/
+MoneroRequest_Rust is an easy way to decode/encode monero-request codes in Rust.
+
+Use [EncodePaymentRequest] and [DecodePaymentRequest] to create and decode requests. 
+[GenRandomPaymentID] is a helper function for generating random PaymentIDs valid to the 
+Monero protocol standard.
+
+You may review the Monero Payment Request Standard [here](https://github.com/lukeprofits/Monero_Payment_Request_Standard).*/
 #![allow(non_snake_case)]
 use std::{io::Write, iter};
 use rand::prelude::*;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use flate2::{write::GzEncoder, Compression};
-
+use chrono::{prelude::*};
 
 
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MoneroRequest {
-	CustomLabel: String,
-	SellersWallet: String,
-	Currency: String,
-	Amount: String,
-	PaymentID: String,
-	StartDate: String,
-	DaysPerBillingCycle: u8,
-	NumberOfPayments: u8,
-	ChangeIndicatorURL: String,
-	Version: String
+	pub CustomLabel: String,
+	pub SellersWallet: String,
+	pub Currency: String,
+	pub Amount: String,
+	pub PaymentID: String,
+	pub StartDate: String,
+	pub DaysPerBillingCycle: u8,
+	pub NumberOfPayments: u8,
+	pub ChangeIndicatorURL: String,
+	pub Version: String
 }
 
 impl MoneroRequest {
@@ -64,25 +70,43 @@ impl MoneroRequest {
 		}
 
 		// StartDate
-		// todo!
+		if self.StartDate.len() == 0 {
+			self.StartDate = Utc::now().to_string();
+		} else {
+			self.StartDate = match self.StartDate.parse::<DateTime<Utc>>() {
+				Ok(r) => r.to_string(),
+				Err(e) => return Err(MoneroRequestError::ChronoError(e))
+			}
+		}
+
+		// Currency
+		if !vec!["USD", "XMR"].contains(&self.Currency.as_str()) { return Err(MoneroRequestError::InvalidInput("Invalid Currency.")); }
 
 		// Amount
-		// todo!
+		if !regex::Regex::new(r"(?m)[\d,.]+").unwrap().is_match(&self.Amount) {
+			return Err(MoneroRequestError::InvalidInput("Invalid Amount."));
+		};
 
 		// Days per billing cycle
 		if self.DaysPerBillingCycle == 0 { return Err(MoneroRequestError::InvalidInput("DaysPerBillingCycle cannot be zero.")) }
 
 		// NumberOfPayments
-		if self.NumberOfPayments == 0 { return Err(MoneroRequestError::InvalidInput("NumberOfPayments cannot be zero.")) }
+		// Any u8 will be valid.
 
 		// ChangeIndicatorURL
-		// todo!
+		if self.ChangeIndicatorURL.len() > 0 {
+			match url::Url::parse(&self.ChangeIndicatorURL) {
+				Err(e) => return Err(MoneroRequestError::UrlError(e)),
+				Ok(r) => if r.cannot_be_a_base() { return Err(MoneroRequestError::InvalidInput("ChangeIndicatorURL is an invalid URL.")); }
+			};
+		}
 
 		// Version
-		if self.Version != "1" { return Err(MoneroRequestError::InvalidInput("Unsupported version.")) }
-
-
-
+		match self.Version.as_str() {
+			"" => self.Version = "1".to_string(),
+			"1" => {},
+			_ => return Err(MoneroRequestError::InvalidInput("Unsupported version."))
+		}
 
 		Ok(())
 	}
@@ -95,7 +119,22 @@ pub fn DecodePaymentRequest(Request: String) {
 }
 
 
-/// Accepts a MoneroRequest struct, validates it, and outputs a String constituting a Monero Payment Request
+/// Accepts a [`MoneroRequest`] struct, validates it, and outputs a String constituting a valid Monero Payment Request
+///
+/// If no [`PaymentID`](MoneroRequest::PaymentID) is provided, one will be generated randomly using [`GenRandomPaymentID`]. If you explicitely
+/// do not want to have a PaymentID you may set it to `0000000000000000` (16 zeroes).
+///
+/// If no [`CustomLabel`](MoneroRequest::CustomLabel) is provided `Monero Payment Request` will be used.
+///
+/// [`DaysPerBillingCycle`](MoneroRequest::DaysPerBillingCycle) may not be zero.
+///
+/// [`NumberOfPayments`](MoneroRequest::NumberOfPayments) may not be zero.
+///
+/// If no [`StartDate`](MoneroRequest::StartDate) is provided, now will be used. StartDate should be either in UTC time or contain enough 
+/// information to be parsed into UTC time. The Chrono library is used for this parsing. To guarentee compatibility 
+/// with this MoneroRequest library use Chrono's DateTime type.
+///
+/// If [`Version`](MoneroRequest::Version) is blank the latest version will be used.
 pub fn EncodePaymentRequest(mut Request: MoneroRequest) -> Result<String, MoneroRequestError> {
 	// Validate input
 	if let Err(e) = Request.Validate() { return Err(e); }
@@ -125,9 +164,13 @@ pub fn EncodePaymentRequest(mut Request: MoneroRequest) -> Result<String, Monero
 
 
 
-/// Generates a random string that may be used as a Monero payment_id in an integrated address.
+/// Generates a random string that may be used as a Monero protocol payment_id in an integrated address.
 ///
-/// Returns 16 hex characters as a string. Example: 60B6A010501201F1
+/// Returns 16 hex characters as a string. Example: `60B6A010501201F1`
+///
+/// This will be used by default if no [`PaymentID`](MoneroRequest::PaymentID) is provided when encoding a 
+/// new request with [`EncodePaymentRequest`]. You may want to use this directly before calling [`EncodePaymentRequest`] 
+/// so you can check it for uniqueness against prior transactions in your records.
 pub fn GenRandomPaymentID() -> String {
 	let mut RNG = rand::thread_rng();
 	let HEXChars = "0123456789abcdef";
@@ -139,10 +182,7 @@ pub fn GenRandomPaymentID() -> String {
 
 
 
-
-
-
-/// All errors we may emit
+/// Enum containing all errors we may emit.
 #[derive(thiserror::Error, Debug)]
 pub enum MoneroRequestError {
 	#[error("{0}")]
@@ -150,6 +190,12 @@ pub enum MoneroRequestError {
 
 	#[error(transparent)]
 	SerdeError(#[from] serde_json::Error),
+
+	#[error(transparent)]
+	ChronoError(#[from] chrono::ParseError),
+
+	#[error(transparent)]
+	UrlError(#[from] url::ParseError),
 
 	#[error("{0}")]
 	GZipError(&'static str)
