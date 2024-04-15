@@ -12,7 +12,7 @@ use std::{io::Write, iter};
 use rand::prelude::*;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use flate2::{write::GzEncoder, Compression};
+use flate2::{write::GzDecoder, write::GzEncoder, Compression};
 use chrono::{prelude::*};
 
 
@@ -114,8 +114,47 @@ impl MoneroRequest {
 
 
 
-pub fn DecodePaymentRequest(Request: String) {
-	// TODO
+/// Accepts a valid Monero Payment Request and returns a [`MoneroRequest`] containing the decoded information.
+pub fn DecodePaymentRequest(Request: String) -> Result<MoneroRequest, MoneroRequestError> {
+	// Parse and validate input
+	let Caps = match regex::Regex::new(r"(?m)(?<header>monero-request):(?<version>\d):(?<request>.+)").unwrap().captures(&Request) {
+		Some(r) => r,
+		None => { return Err(MoneroRequestError::InvalidInput("Invalid request string.")); }
+	};
+
+	if &Caps["header"] != "monero-request" { return Err(MoneroRequestError::InvalidInput("Invalid request header.")); }
+	if &Caps["version"] != "1" { return Err(MoneroRequestError::InvalidInput("Invalid request version.")); }
+	let Request = &Caps["request"];
+
+	// Un-Base64 to GZip
+	let Request = match base64::engine::general_purpose::STANDARD.decode(Request) {
+		Ok(r) => r,
+		Err(e) => return Err(MoneroRequestError::Base64Error(e))
+	};
+
+	// Un-GZip to JSON
+	let mut GZipOutput = GzDecoder::new(Vec::new());
+	if GZipOutput.write_all(&Request).is_err() { return Err(MoneroRequestError::GZipError("Error decompressing date")); }
+	let GZipOutput = match GZipOutput.finish() {
+		Err(_) => return Err(MoneroRequestError::GZipError("Error decompressing date.")),
+		Ok(r) => r
+	};
+	let Request = match String::from_utf8(GZipOutput) {
+		Ok(r) => r,
+		Err(_) => return Err(MoneroRequestError::GZipError("Error decompressing date."))
+	};
+
+	// Deserialize to struct
+	// If the json is not properly formatted, or if fields are missing, this is going to have errors. Improper
+	// json is probably ok to fail on. No fields are marked optional in the spec, so this breaking for a missing 
+	// field should also be ok.
+
+	let Request: MoneroRequest = match serde_json::from_str(Request.as_str()) {
+		Ok(r) => r,
+		Err(e) => return Err(MoneroRequestError::SerdeError(e))
+	};
+
+	return Ok(Request);
 }
 
 
@@ -145,7 +184,7 @@ pub fn EncodePaymentRequest(mut Request: MoneroRequest) -> Result<String, Monero
 		Err(e) => return Err(MoneroRequestError::SerdeError(e))
 	};
 
-	// GZip the output
+	// GZip the JSON
 	let mut GZipOutput = GzEncoder::new(Vec::new(), Compression::default());
 	if GZipOutput.write_all(Output.as_bytes()).is_err() { return Err(MoneroRequestError::GZipError("Error compressing data."))}
 	let GZipOutput = match GZipOutput.finish() {
@@ -153,7 +192,7 @@ pub fn EncodePaymentRequest(mut Request: MoneroRequest) -> Result<String, Monero
 		Err(_) => return Err(MoneroRequestError::GZipError("Error compressing data."))
 	};
 
-	// Base64 the output -- This cannot fail? Sus.
+	// Base64 the GZip -- This cannot fail? Sus.
 	let Output = base64::engine::general_purpose::STANDARD.encode(GZipOutput);
 
 	// Add tags
@@ -196,6 +235,10 @@ pub enum MoneroRequestError {
 
 	#[error(transparent)]
 	UrlError(#[from] url::ParseError),
+
+	#[error(transparent)]
+	Base64Error(#[from] base64::DecodeError),
+
 
 	#[error("{0}")]
 	GZipError(&'static str)
